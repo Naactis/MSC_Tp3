@@ -1,0 +1,64 @@
+# Hipótesis de modelado — TP3
+
+## 1. Modelo geométrico
+
+Se considera una presa de gravedad de hormigón, representada mediante una sección transversal bidimensional de geometría trapezoidal.
+
+- Altura total: H = 30 m.
+- Ancho de base: B = 18 m.
+- Ancho de cresta: C = 3 m.
+- Borde libre: d = 2 m.
+- Altura del agua: h = 28 m.
+
+Se supone que la geometría es constante en la dirección longitudinal de la presa.
+
+## 2. Hipótesis cinemáticas
+
+Se adopta inicialmente un modelo de **estado plano de deformación (plane strain)**.
+
+Se supone que la longitud de la presa es suficientemente grande respecto de las dimensiones de su sección transversal y que se analizan regiones alejadas de sus extremos.
+
+En consecuencia, se consideran nulas las deformaciones fuera del plano
+
+Los desplazamientos se describen mediante las componentes \(u(x,y)\) y \(v(x,y)\).
+
+Se consideran pequeñas deformaciones y pequeños desplazamientos.
+
+## 3. Modelo constitutivo
+
+El hormigón se modela como un material homogéneo, isótropo y elástico lineal.
+
+Se adoptan las siguientes propiedades:
+
+- Módulo de Young: E = 21 GPa.
+- Coeficiente de Poisson: ν = 0,25.
+- Densidad: ρ = 2400 kg/m³.
+
+No se consideran inicialmente fenómenos de fisuración, plasticidad, daño ni fluencia lenta del hormigón.
+
+## 4. Hipótesis de carga
+
+Se considera un problema de equilibrio estático.
+
+Las cargas actuantes son:
+
+- Peso propio de la estructura, calculado a partir de la densidad del hormigón y de la aceleración gravitatoria.
+- Presión hidrostática del agua sobre la cara vertical aguas arriba.
+
+Se considera una densidad del agua constante de 1000 kg/m³ y una distribución hidrostática de presiones.
+
+## 5. Condiciones de borde
+
+Se considera inicialmente la base de la presa vinculada al terreno.
+
+La condición cinemática específica se definirá y justificará antes de implementar el modelo numérico.
+
+Se analizarán las implicancias físicas de las restricciones adoptadas.
+
+## 6. Limitaciones
+
+El modelo bidimensional no representa efectos tridimensionales asociados a los extremos de la presa.
+
+La aproximación elástica lineal no permite representar mecanismos de falla por fisuración, deslizamiento o aplastamiento del hormigón.
+
+El estado plano de deformación se adopta como hipótesis de estudio. Dado que la consigna solicita estado plano de tensión, también se implementará esta última formulación para cumplir con el requerimiento y permitir la comparación de resultados.
