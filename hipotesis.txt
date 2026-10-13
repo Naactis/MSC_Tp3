@@ -60,5 +60,3 @@ Se analizarán las implicancias físicas de las restricciones adoptadas.
 El modelo bidimensional no representa efectos tridimensionales asociados a los extremos de la presa.
 
 La aproximación elástica lineal no permite representar mecanismos de falla por fisuración, deslizamiento o aplastamiento del hormigón.
-
-El estado plano de deformación se adopta como hipótesis de estudio. Dado que la consigna solicita estado plano de tensión, también se implementará esta última formulación para cumplir con el requerimiento y permitir la comparación de resultados.
