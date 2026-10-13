@@ -72,3 +72,8 @@ class CST:
             ue[i] = u[dofs[i]]
 
         return self.B @ ue
+    
+    def stress(self, u):
+        C = self.material.matriz_constitutiva()
+
+        return C @ self.strain(u)
