@@ -83,8 +83,8 @@ def run_patch_test_q4():
     # Resolver el sistema (el nodo 8 es el único libre)
     u, R = solve_system_direct(K, f, fixed_dofs, fixed_values)
 
-    plot_deformed_mesh(mesh, elements, u, scale_factor=300.0, save_filename="patch_test_q4.png")
     #Graficar la malla deformada y guardar la imagen en 'output/patch_test_q4.png'
+    plot_deformed_mesh(mesh, elements, u, scale_factor=300.0, save_filename="patch_test_q4.png")
     
     # --- 4. Verificación del Nodo Interno (Nodo 8) ---
     nodo_interno = mesh.node(8)
