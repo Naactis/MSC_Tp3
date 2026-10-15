@@ -1,121 +1,364 @@
-import sys
+"""
+Patch test del elemento Q8.
+
+Se utiliza un parche de cuatro cuadrilateros serendipitos de
+ocho nodos, con el vertice interior distorsionado. Se impone un
+campo lineal GENERAL de desplazamientos sobre el contorno (las
+tres deformaciones distintas de cero) y se verifica que el
+sistema reproduzca la solucion analitica en desplazamientos,
+reacciones, deformaciones y tensiones.
+
+El ensayo se repite para tension plana y deformacion plana.
+
+Ejecutar desde la raiz del proyecto:
+    python tests/testQ8.py
+"""
+
 import os
+import sys
+
 import numpy as np
 
-# Agregar la carpeta raíz al path de Python
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Se agrega la raiz del proyecto al path para poder ejecutar
+# el archivo directamente con: python tests/testQ8.py
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from source.mesh.node import Node
+from source.mesh.mesh import Mesh
 from source.materials.LinearElastic import LinearElastic
+from source.elements.q8 import Q8
 from source.systems.assembly import assemble_stiffness
 from source.systems.bc import solve_system_direct
-from source.elements.q8 import Q8
-from source.output.plot import plot_deformed_mesh
-
-class MockNode:
-    def __init__(self, id, x, y):
-        self.id = id
-        self.x = x
-        self.y = y
 
 
-class MockMesh:
-    def __init__(self):
-        # Parche 2x2 con 21 nodos continuos (IDs 0 a 20):
-        # Nodos 0 a 8: Esquinas (Nodo 8 interno distorsionado)
-        # Nodos 9 a 16: Nodos medios del contorno exterior
-        # Nodos 17 a 20: Nodos medios de bordes internos
-        self.nodes = {
-            # Nodos de esquina
-            0: MockNode(0, 0.0, 0.0),
-            1: MockNode(1, 1.0, 0.0),
-            2: MockNode(2, 2.0, 0.0),
-            3: MockNode(3, 2.0, 1.0),
-            4: MockNode(4, 2.0, 2.0),
-            5: MockNode(5, 1.0, 2.0),
-            6: MockNode(6, 0.0, 2.0),
-            7: MockNode(7, 0.0, 1.0),
-            8: MockNode(8, 0.8, 1.2),  # Esquina interna (distorsionada)
+# =============================================================
+# CAMPO ANALITICO DE DESPLAZAMIENTOS
+# =============================================================
 
-            # Nodos medios del contorno exterior
-            9:  MockNode(9,  0.5, 0.0),  # Borde (0, 1)
-            10: MockNode(10, 1.5, 0.0),  # Borde (1, 2)
-            11: MockNode(11, 2.0, 0.5),  # Borde (2, 3)
-            12: MockNode(12, 2.0, 1.5),  # Borde (3, 4)
-            13: MockNode(13, 1.5, 2.0),  # Borde (4, 5)
-            14: MockNode(14, 0.5, 2.0),  # Borde (5, 6)
-            15: MockNode(15, 0.0, 1.5),  # Borde (6, 7)
-            16: MockNode(16, 0.0, 0.5),  # Borde (7, 0)
+# Campo lineal general:
+#
+#   ux(x,y) = a0 + a1*x + a2*y
+#   uy(x,y) = b0 + b1*x + b2*y
+#
+# Deformaciones exactas (constantes):
+#   epsilon_x = a1
+#   epsilon_y = b2
+#   gamma_xy  = a2 + b1
+#
+# Se eligen coeficientes sin relacion especial entre si para que
+# epsilon_x, epsilon_y y gamma_xy sean distintas de cero. Asi
+# participan todos los terminos de B y de C, incluido el de corte.
+# Los terminos constantes a0, b0 agregan una traslacion rigida.
 
-            # Nodos medios internos
-            17: MockNode(17, 0.9, 0.6),  # Arista (1, 8)
-            18: MockNode(18, 1.4, 1.1),  # Arista (3, 8)
-            19: MockNode(19, 0.9, 1.6),  # Arista (5, 8)
-            20: MockNode(20, 0.4, 1.1),  # Arista (7, 8)
-        }
-
-    def node(self, nid):
-        return self.nodes[nid]
-
-    def number_of_dofs(self):
-        return len(self.nodes) * 2
-
-    def node_global_dofs(self, nid):
-        return [2 * nid, 2 * nid + 1]
+A0, A1, A2 = 0.0002, 0.0010, 0.0020
+B0, B1, B2 = -0.0001, 0.0005, -0.0015
 
 
-def run_patch_test_q8():
-    mesh = MockMesh()
-    mat = LinearElastic(E=1000.0, nu=0.3)
+def desplazamiento_exacto(node):
+    ux = A0 + A1 * node.x + A2 * node.y
+    uy = B0 + B1 * node.x + B2 * node.y
+    return np.array([ux, uy])
+
+
+EPSILON_EXACTA = np.array([A1, B2, A2 + B1])
+
+
+def tension_exacta(E, nu, plane_state):
+    """
+    Tensiones exactas del campo impuesto, calculadas a mano a partir
+    de E y nu. NO se usa material.matriz_constitutiva(): si la matriz
+    C del codigo tuviera un error, el valor esperado tendria el mismo
+    error y el test no lo detectaria.
+
+    Se escriben con los parametros de Lame:
+        mu     = E / (2 (1 + nu))          (modulo de corte G)
+        lambda = E nu / ((1 + nu)(1 - 2 nu))
+
+    Deformacion plana:
+        sigma_x = (lambda + 2 mu) eps_x + lambda eps_y
+        sigma_y = lambda eps_x + (lambda + 2 mu) eps_y
+        tau_xy  = mu gamma_xy
+
+    Tension plana: igual, reemplazando lambda por
+        lambda* = 2 lambda mu / (lambda + 2 mu) = E nu / (1 - nu^2)
+    """
+
+    eps_x, eps_y, gamma_xy = EPSILON_EXACTA
+
+    mu = E / (2.0 * (1.0 + nu))
+    lam = E * nu / ((1.0 + nu) * (1.0 - 2.0 * nu))
+
+    if plane_state == "stress":
+        lam = 2.0 * lam * mu / (lam + 2.0 * mu)
+
+    return np.array([
+        (lam + 2.0 * mu) * eps_x + lam * eps_y,
+        lam * eps_x + (lam + 2.0 * mu) * eps_y,
+        mu * gamma_xy
+    ])
+
+
+# =============================================================
+# PATCH TEST
+# =============================================================
+
+def run_patch_test_q8(plane_state="stress", plot=False):
+    """
+    Ejecuta el patch test de cuatro elementos Q8.
+
+    Parametros:
+        plane_state: "stress" (tension plana) o "strain"
+                     (deformacion plana).
+        plot: permite generar opcionalmente la imagen
+              de la malla deformada.
+
+    Verifica:
+        - Dimensiones y simetria de las matrices de rigidez.
+        - Movimientos de cuerpo rigido elementales.
+        - Reproduccion del campo lineal de desplazamientos.
+        - Reacciones analiticas y equilibrio global.
+        - Deformaciones y tensiones constantes en los puntos de Gauss.
+    """
+
+    etiqueta = f"Q8 [{plane_state}]"
+
+    # =========================================================
+    # 1. MATERIAL Y GEOMETRIA DEL PARCHE
+    # =========================================================
+
+    mat = LinearElastic(E=1000.0, nu=0.3, plane_state=plane_state)
     thickness = 1.0
 
-    # Formato Q8: [4 esquinas antihorario, 4 nodos medios antihorario]
+    # Nodos 0 a 8: vertices (8 es interior y esta distorsionado).
+    # Nodos 9 a 16: nodos medios del borde exterior.
+    # Nodos 17 a 20: nodos medios de aristas internas.
+    mesh = Mesh()
+
+    mesh.nodes = [
+        # Vertices exteriores y vertice interior
+        Node(0, 0.0, 0.0),
+        Node(1, 1.0, 0.0),
+        Node(2, 2.0, 0.0),
+        Node(3, 2.0, 1.0),
+        Node(4, 2.0, 2.0),
+        Node(5, 1.0, 2.0),
+        Node(6, 0.0, 2.0),
+        Node(7, 0.0, 1.0),
+        Node(8, 0.8, 1.2),
+
+        # Nodos medios del contorno exterior
+        Node(9, 0.5, 0.0),
+        Node(10, 1.5, 0.0),
+        Node(11, 2.0, 0.5),
+        Node(12, 2.0, 1.5),
+        Node(13, 1.5, 2.0),
+        Node(14, 0.5, 2.0),
+        Node(15, 0.0, 1.5),
+        Node(16, 0.0, 0.5),
+
+        # Nodos medios de las aristas internas
+        Node(17, 0.9, 0.6),
+        Node(18, 1.4, 1.1),
+        Node(19, 0.9, 1.6),
+        Node(20, 0.4, 1.1)
+    ]
+
+    # Conectividad: [4 vertices antihorarios, 4 nodos medios].
+    # Los nodos medios internos son compartidos por los dos
+    # elementos que poseen la misma arista.
     elements = [
         Q8(0, [0, 1, 8, 7, 9, 17, 20, 16], mesh, mat, thickness),
         Q8(1, [1, 2, 3, 8, 10, 11, 18, 17], mesh, mat, thickness),
         Q8(2, [8, 3, 4, 5, 18, 12, 13, 19], mesh, mat, thickness),
-        Q8(3, [7, 8, 5, 6, 20, 19, 14, 15], mesh, mat, thickness),
+        Q8(3, [7, 8, 5, 6, 20, 19, 14, 15], mesh, mat, thickness)
     ]
 
+    # Aristas del contorno exterior:
+    # ([extremo, nodo medio, extremo], normal exterior).
+    # Todas tienen longitud 1.
+    aristas_contorno = [
+        ([0, 9, 1],  ( 0.0, -1.0)),   # borde inferior
+        ([1, 10, 2], ( 0.0, -1.0)),
+        ([2, 11, 3], ( 1.0,  0.0)),   # borde derecho
+        ([3, 12, 4], ( 1.0,  0.0)),
+        ([4, 13, 5], ( 0.0,  1.0)),   # borde superior
+        ([5, 14, 6], ( 0.0,  1.0)),
+        ([6, 15, 7], (-1.0,  0.0)),   # borde izquierdo
+        ([7, 16, 0], (-1.0,  0.0))
+    ]
+
+    # Fuerzas nodales equivalentes de una traccion uniforme sobre
+    # una arista cuadratica de longitud L: t * L * [1/6, 2/3, 1/6].
+    pesos_arista = [1.0 / 6.0, 2.0 / 3.0, 1.0 / 6.0]
+    longitud_arista = 1.0
+
+    # =========================================================
+    # 2. ENSAMBLAJE Y VERIFICACION DE RIGIDEZ
+    # =========================================================
+
     K = assemble_stiffness(mesh, elements)
+
+    # No se aplican cargas externas: el ensayo se realiza
+    # imponiendo desplazamientos en el contorno.
     f = np.zeros(mesh.number_of_dofs())
 
-    # Nodos del contorno exterior (restringidos)
-    boundary_nodes = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16]
-    # Nodos internos libres: [8, 17, 18, 19, 20]
+    # 21 nodos con dos GDL producen una matriz 42x42.
+    assert K.shape == (42, 42)
+    np.testing.assert_allclose(K, K.T, rtol=1e-12, atol=1e-10)
 
-    c = 0.001
+    for element in elements:
+
+        Ke = element.stiffness_matrix()
+
+        # Cada Q8 tiene ocho nodos y dieciseis GDL.
+        assert Ke.shape == (16, 16)
+        np.testing.assert_allclose(Ke, Ke.T, rtol=1e-12, atol=1e-10)
+
+        # Movimientos de cuerpo rigido: dos traslaciones y una
+        # rotacion infinitesimal. No deben generar fuerzas: Ke @ U = 0.
+        coords = element.coords
+
+        traslacion_x = np.tile([1.0, 0.0], 8)
+        traslacion_y = np.tile([0.0, 1.0], 8)
+        rotacion_z = np.column_stack((-coords[:, 1], coords[:, 0])).reshape(-1)
+
+        escala_K = np.linalg.norm(Ke, ord=np.inf)
+
+        for movimiento in [traslacion_x, traslacion_y, rotacion_z]:
+            residuo = Ke @ movimiento
+            error_relativo = np.linalg.norm(residuo, ord=np.inf) / (
+                escala_K * np.linalg.norm(movimiento, ord=np.inf)
+            )
+            assert error_relativo < 1e-11
+
+    print(f"{etiqueta}: matrices de rigidez y modos rigidos verificados.")
+
+    # =========================================================
+    # 3. CONDICIONES DE BORDE Y RESOLUCION
+    # =========================================================
+
+    # Se impone el campo exacto en los dieciseis nodos del contorno.
+    # Quedan libres los cinco nodos interiores: el vertice 8 y
+    # los cuatro nodos medios de las aristas internas.
+    boundary_nodes = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 16]
+
     fixed_dofs = []
     fixed_values = []
 
     for nid in boundary_nodes:
-        node = mesh.node(nid)
-        ux_val = c * node.x
-        uy_val = -mat.nu * c * node.y
+        fixed_dofs.extend(mesh.node_global_dofs(nid))
+        fixed_values.extend(desplazamiento_exacto(mesh.node(nid)))
 
-        fixed_dofs.extend([2 * nid, 2 * nid + 1])
-        fixed_values.extend([ux_val, uy_val])
+    u, reacciones = solve_system_direct(K, f, fixed_dofs, fixed_values)
+    u = np.asarray(u).reshape(-1)
 
-    # Resolver el sistema para los nodos internos
-    u, R = solve_system_direct(K, f, fixed_dofs, fixed_values)
+    assert u.size == mesh.number_of_dofs()
 
-    plot_deformed_mesh(mesh, elements, u, scale_factor=300.0, save_filename="patch_test_q8.png")
-    # Verificación en los 5 nodos internos
-    internal_nodes = [8, 17, 18, 19, 20]
-    tolerancia = 1e-8
+    # =========================================================
+    # 4. VERIFICACION DE DESPLAZAMIENTOS
+    # =========================================================
 
-    for nid in internal_nodes:
-        node = mesh.node(nid)
-        ux_esp = c * node.x
-        uy_esp = -mat.nu * c * node.y
+    # Se comparan todos los nodos; la comprobacion de los nodos
+    # interiores es la que evalua la reproduccion del campo.
+    for node in mesh.nodes:
+        np.testing.assert_allclose(
+            u[mesh.node_global_dofs(node.global_id)],
+            desplazamiento_exacto(node),
+            rtol=1e-9, atol=1e-10,
+            err_msg=f"{etiqueta}: desplazamientos incorrectos en nodo {node.global_id}"
+        )
 
-        ux_calc = u[2 * nid]
-        uy_calc = u[2 * nid + 1]
+    print(f"{etiqueta}: desplazamientos nodales verificados.")
 
-        assert abs(ux_calc - ux_esp) < tolerancia, f"Fallo Nodo {nid} ux. Exp: {ux_esp}, Calc: {ux_calc}"
-        assert abs(uy_calc - uy_esp) < tolerancia, f"Fallo Nodo {nid} uy. Exp: {uy_esp}, Calc: {uy_calc}"
+    # =========================================================
+    # 5. VERIFICACION DE REACCIONES
+    # =========================================================
 
-    print("\n>>> Patch Test Q8: SUPERADO EXITOSAMENTE <<<\n")
+    # Verificar desplazamientos y deformaciones no alcanza: con
+    # f = 0, si K estuviera multiplicada por una constante
+    # (pesos de Gauss, espesor o E mal), la solucion seria la misma.
+    # Las reacciones si dependen de la magnitud de K.
+    #
+    # El estado de tension exacto es uniforme y se calcula a mano
+    # (ver tension_exacta), independiente de la matriz C del codigo.
+    # En cada arista del contorno, la traccion es t = S @ n, con
+    #
+    #   S = [[sigma_x, tau_xy],
+    #        [tau_xy,  sigma_y]]
+    #
+    # y se reparte en los nodos con los pesos de la arista.
+    # Los vertices compartidos entre dos aristas reciben ambos aportes.
+    sigma_exacta = tension_exacta(mat.E, mat.nu, plane_state)
+
+    S = np.array([
+        [sigma_exacta[0], sigma_exacta[2]],
+        [sigma_exacta[2], sigma_exacta[1]]
+    ])
+
+    reacciones_exactas = np.zeros(mesh.number_of_dofs())
+
+    for nodos_arista, normal in aristas_contorno:
+        traccion = S @ np.array(normal)
+
+        for nid, peso in zip(nodos_arista, pesos_arista):
+            dofs = mesh.node_global_dofs(nid)
+            reacciones_exactas[dofs] += traccion * peso * longitud_arista * thickness
+
+    np.testing.assert_allclose(
+        reacciones, reacciones_exactas,
+        rtol=1e-9, atol=1e-10,
+        err_msg=f"{etiqueta}: reacciones incorrectas (revisar K y C)"
+    )
+
+    # Equilibrio global de fuerzas
+    assert abs(np.sum(reacciones[0::2])) < 1e-10
+    assert abs(np.sum(reacciones[1::2])) < 1e-10
+
+    print(f"{etiqueta}: reacciones y equilibrio global verificados.")
+
+    # =========================================================
+    # 6. VERIFICACION DE DEFORMACIONES Y TENSIONES
+    # =========================================================
+
+    # Un campo lineal produce deformaciones y tensiones constantes
+    # en todo el parche. Se verifican en los nueve puntos de Gauss
+    # de cada elemento.
+    gauss_pts = [-np.sqrt(3.0 / 5.0), 0.0, np.sqrt(3.0 / 5.0)]
+
+    for element in elements:
+        for xi in gauss_pts:
+            for eta in gauss_pts:
+
+                np.testing.assert_allclose(
+                    element.strain(u, xi, eta), EPSILON_EXACTA,
+                    rtol=1e-9, atol=1e-10,
+                    err_msg=f"{etiqueta}: deformaciones incorrectas en elemento {element.global_id}"
+                )
+
+                np.testing.assert_allclose(
+                    element.stress(u, xi, eta), sigma_exacta,
+                    rtol=1e-9, atol=1e-8,
+                    err_msg=f"{etiqueta}: tensiones incorrectas en elemento {element.global_id}"
+                )
+
+    print(f"{etiqueta}: deformaciones y tensiones constantes verificadas.")
+
+    # =========================================================
+    # 7. VISUALIZACION OPCIONAL
+    # =========================================================
+
+    if plot:
+        from source.output.plot import plot_deformed_mesh
+
+        plot_deformed_mesh(
+            mesh, elements, u,
+            scale_factor=100.0,
+            save_filename=f"patch_test_q8_{plane_state}.png"
+        )
+
+    print(f"\n>>> Patch Test {etiqueta}: SUPERADO EXITOSAMENTE <<<\n")
 
 
 if __name__ == "__main__":
-    run_patch_test_q8()
+    for estado in ["stress", "strain"]:
+        run_patch_test_q8(plane_state=estado, plot=True)
