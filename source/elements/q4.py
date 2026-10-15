@@ -1,4 +1,3 @@
-
 import numpy as np
 
 
@@ -103,6 +102,27 @@ class Q4:
                     * detJ
                     * weight * weight
                 )
+
+    # -------------------------------------------------------------
+    # Funciones de forma
+    # -------------------------------------------------------------
+
+    # Se usan para interpolar cargas de volumen (peso propio).
+    def shape_functions(self, xi, eta):
+        """
+        Evalua las cuatro funciones de forma bilineales
+        en las coordenadas naturales (xi, eta).
+
+        Retorna:
+            N: vector de cuatro funciones de forma.
+        """
+
+        return 0.25 * np.array([
+            (1.0 - xi) * (1.0 - eta),
+            (1.0 + xi) * (1.0 - eta),
+            (1.0 + xi) * (1.0 + eta),
+            (1.0 - xi) * (1.0 + eta)
+        ])
 
     # -------------------------------------------------------------
     # 3. Matriz cinematica B y Jacobiano
