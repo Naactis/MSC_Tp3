@@ -1,0 +1,10 @@
+Para los CST:
+    Comprobar que cada CST reciba exactamente tres nodos.
+    Comprobar que el espesor sea positivo.
+    Considerar una tolerancia geométrica para detectar triángulos prácticamente degenerados.
+
+Para Mesh:
+    Actualmente solo lee archivos de texto suponiendo que se los vas a entregar con la id de los nodos en orden consecutivo, osea id global 1, 2, 3, 4 y asi, podriamos implementar una parte de codigo que te ordene el txt antes de leerlo quizas
+
+Para testeo CST:
+    Terminar el patch test
