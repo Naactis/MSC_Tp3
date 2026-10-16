@@ -323,31 +323,11 @@ def run_gravity_dam(config):
     # Se muestran los resultados maximos en la terminal.
     report_displacements(displacements)
 
-    plot_displacement_fields(
-        mesh,
-        elements,
-        U,
-        subdivisions=10,
-        title=f"Presa de gravedad - {config.mesh_path.stem}",
-        save_filename=f"displacements{config.mesh_path.stem}.png"
-        )
 
     # ---------------------------------------------------------
     # 10. Postprocesamiento de deformaciones y tensiones
     # ---------------------------------------------------------
 
-    print("Calculando deformaciones y tensiones...")
-
-    stress_results = compute_strain_stress(
-        mesh,
-        elements,
-        U
-    )
-
-    print(
-        f"Puntos de evaluacion: "
-        f"{len(stress_results['stresses'])}"
-    )
 
     print("Calculando deformaciones y tensiones...")
 
