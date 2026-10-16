@@ -38,6 +38,13 @@ from source.output.stressPostprocess import compute_strain_stress
 from source.output.reports import report_strain_stress
 from source.output.stressPlot import plot_stress_fields
 
+# Estabilidad al vuelco
+from source.output.stability import (
+    analytic_stability,
+    fem_stability,
+    report_stability
+)
+
 # =============================================================
 # 1. CONFIGURACION DEL PROBLEMA
 # =============================================================
@@ -311,6 +318,39 @@ def run_gravity_dam(config):
     )
 
     # ---------------------------------------------------------
+    # 8b. Estabilidad al vuelco
+    # ---------------------------------------------------------
+
+    # Momentos respecto del pie aguas abajo:
+    #   - analiticos, a partir de la geometria y las densidades
+    #   - del modelo FEM (cargas nodales y reacciones de la base)
+    stability_analytic = analytic_stability(
+        height=config.height,
+        base_width=config.base_width,
+        crest_width=config.crest_width,
+        water_level=config.water_level,
+        rho_concrete=rho_concrete,
+        rho_water=config.rho_water,
+        g=config.gravity,
+        thickness=config.thickness
+    )
+
+    stability_fem = fem_stability(
+        mesh,
+        f_body,
+        f_hydro,
+        reactions,
+        x_toe=config.x_upstream + config.base_width
+    )
+
+    stability_summary = report_stability(
+        stability_analytic,
+        stability_fem,
+        base_width=config.base_width,
+        x_upstream=config.x_upstream
+    )
+
+    # ---------------------------------------------------------
     # 9. Postprocesamiento de desplazamientos
     # ---------------------------------------------------------
 
@@ -405,7 +445,13 @@ def run_gravity_dam(config):
         "reactions": reactions,
         "F_body": f_body,
         "F_hydro": f_hydro,
-        "displacements": displacements
+        "displacements": displacements,
+        "stresses": stress_results,
+        "stability": {
+            "analytic": stability_analytic,
+            "fem": stability_fem,
+            **stability_summary
+        }
     }
 
 

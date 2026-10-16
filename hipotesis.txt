@@ -31,7 +31,7 @@ El hormigón se modela como un material homogéneo, isótropo y elástico lineal
 Se adoptan las siguientes propiedades:
 
 - Módulo de Young: E = 21 GPa.
-- Coeficiente de Poisson: ν = 0,25.
+- Coeficiente de Poisson: ν = 0,20.
 - Densidad: ρ = 2400 kg/m³.
 
 No se consideran inicialmente fenómenos de fisuración, plasticidad, daño ni fluencia lenta del hormigón.
