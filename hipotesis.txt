@@ -1,62 +1,93 @@
-# Hipótesis de modelado — TP3
+HIPÓTESIS DE MODELADO — TP3
+Mecánica del Sólido Computacional | Presa de gravedad
 
-## 1. Modelo geométrico
+1. GEOMETRÍA Y ALCANCE DEL MODELO
 
-Se considera una presa de gravedad de hormigón, representada mediante una sección transversal bidimensional de geometría trapezoidal.
+Se analiza una sección transversal bidimensional de una presa de gravedad de hormigón, de geometría trapezoidal, con paramento aguas arriba vertical y paramento aguas abajo inclinado. Las dimensiones del caso de referencia son:
 
 - Altura total: H = 30 m.
 - Ancho de base: B = 18 m.
 - Ancho de cresta: C = 3 m.
-- Borde libre: d = 2 m.
-- Altura del agua: h = 28 m.
+- Borde libre: 2 m.
+- Nivel de agua medido desde la base: h = 28 m.
 
-Se supone que la geometría es constante en la dirección longitudinal de la presa.
+Se supone que la sección y las acciones son uniformes a lo largo de la dirección longitudinal de la presa. Los cálculos de fuerzas, momentos y energía se realizan para un espesor longitudinal de referencia t = 1 m. La geometría puede variarse en el estudio paramétrico conservando las hipótesis generales del modelo.
 
-## 2. Hipótesis cinemáticas
+2. HIPÓTESIS CINEMÁTICAS: DEFORMACIÓN PLANA
 
-Se adopta inicialmente un modelo de **estado plano de deformación (plane strain)**.
+Se adopta un estado plano de deformación (plane strain), conforme a la aclaración posterior del docente. Esta hipótesis idealiza una zona de una presa suficientemente larga, alejada de sus extremos, donde se restringe la deformación en la dirección longitudinal z:
 
-Se supone que la longitud de la presa es suficientemente grande respecto de las dimensiones de su sección transversal y que se analizan regiones alejadas de sus extremos.
+    epsilon_z = gamma_xz = gamma_yz = 0.
 
-En consecuencia, se consideran nulas las deformaciones fuera del plano
+El campo de desplazamientos se describe mediante u_x(x,y) y u_y(x,y). Aunque la deformación longitudinal se anula, la tensión sigma_z no tiene por qué ser cero; para el material isótropo lineal considerado:
 
-Los desplazamientos se describen mediante las componentes \(u(x,y)\) y \(v(x,y)\).
+    sigma_z = nu * (sigma_x + sigma_y).
 
-Se consideran pequeñas deformaciones y pequeños desplazamientos.
+Se suponen desplazamientos y deformaciones pequeños. Se emplea la geometría no deformada para formular el equilibrio y aplicar las cargas. La amplificación gráfica de desplazamientos no modifica la solución mecánica.
 
-## 3. Modelo constitutivo
+3. COMPORTAMIENTO CONSTITUTIVO
 
-El hormigón se modela como un material homogéneo, isótropo y elástico lineal.
-
-Se adoptan las siguientes propiedades:
+El hormigón H°21 se representa como un material homogéneo, isótropo, continuo y elástico lineal, con propiedades constantes:
 
 - Módulo de Young: E = 21 GPa.
-- Coeficiente de Poisson: ν = 0,20.
-- Densidad: ρ = 2400 kg/m³.
+- Coeficiente de Poisson: nu = 0,20.
+- Densidad: rho_c = 2400 kg/m³.
 
-No se consideran inicialmente fenómenos de fisuración, plasticidad, daño ni fluencia lenta del hormigón.
+Se adopta la ley de Hooke correspondiente a deformación plana. No se modelan la fisuración ni la distinta resistencia del hormigón a tracción y compresión; tampoco plasticidad, daño, fluencia lenta, retracción ni efectos térmicos. Por lo tanto, el modelo permite determinar el campo elástico de tensiones y desplazamientos, pero no predecir directamente la rotura del hormigón.
 
-## 4. Hipótesis de carga
+4. HIPÓTESIS DE CARGA
 
-Se considera un problema de equilibrio estático.
+Se analiza el equilibrio estático, sin efectos inerciales dinámicos. Las acciones incluidas son:
 
-Las cargas actuantes son:
+- Peso propio del hormigón, como fuerza volumétrica uniforme dirigida hacia abajo, b_y = -rho_c * g.
+- Presión hidrostática del agua aplicada al paramento vertical aguas arriba y dirigida hacia +x.
 
-- Peso propio de la estructura, calculado a partir de la densidad del hormigón y de la aceleración gravitatoria.
-- Presión hidrostática del agua sobre la cara vertical aguas arriba.
+Se utilizan g = 9,81 m/s² y densidad del agua rho_w = 1000 kg/m³. Tomando y = 0 en la base, la presión del agua es:
 
-Se considera una densidad del agua constante de 1000 kg/m³ y una distribución hidrostática de presiones.
+    p(y) = rho_w * g * (h - y),    0 <= y <= h,
+    p(y) = 0,                      h < y <= H.
 
-## 5. Condiciones de borde
+Se supone agua en reposo y presión hidrostática uniforme en la dirección longitudinal. La cresta y el paramento aguas abajo se consideran libres de tracciones exteriores, salvo las acciones especificadas. No se consideran presión hidrostática aguas abajo, oleaje, acciones sísmicas, variaciones térmicas ni otras cargas adicionales.
 
-Se considera inicialmente la base de la presa vinculada al terreno.
+5. CONDICIONES DE BORDE EN LA BASE Y SU JUSTIFICACIÓN
 
-La condición cinemática específica se definirá y justificará antes de implementar el modelo numérico.
+La base completa de la presa, situada en y = 0, se modela mediante un empotramiento perfecto:
 
-Se analizarán las implicancias físicas de las restricciones adoptadas.
+    u_x(x,0) = 0,
+    u_y(x,0) = 0,       0 <= x <= B.
 
-## 6. Limitaciones
+Estas son condiciones de Dirichlet impuestas a ambos grados de libertad de todos los nodos de la base. Representan una vinculación idealizada con una fundación cuya rigidez es muy elevada frente a la de la presa y en la que no se permiten ni asentamientos ni deslizamientos relativos. El vínculo transmite reacciones horizontales y verticales, incluso tracciones de contacto cuando la solución las requiera.
 
-El modelo bidimensional no representa efectos tridimensionales asociados a los extremos de la presa.
+El empotramiento puede ser una aproximación aceptable para una presa monolítica firmemente vinculada a una fundación rocosa mucho más rígida, siempre que las deformaciones de la fundación sean pequeñas y se mantenga la unión en toda la interfaz. No debe interpretarse como una representación general de cualquier terreno real.
 
-La aproximación elástica lineal no permite representar mecanismos de falla por fisuración, deslizamiento o aplastamiento del hormigón.
+La condición «suelo impermeable» indicada en la consigna se refiere a la filtración y no implica, por sí sola, que el suelo sea indeformable ni que exista adherencia perfecta. La rigidez de la fundación, el rozamiento, el posible deslizamiento y la apertura del contacto no se calculan con el empotramiento adoptado. Las fuerzas de reacción de la base se obtienen del modelo FEM y se emplean para verificar el equilibrio de fuerzas y momentos.
+
+6. HIPÓTESIS HIDRÁULICAS Y DE CONTACTO
+
+Se considera el suelo impermeable según la consigna y no se resuelve un problema de filtración. El modelo no incluye presiones de subpresión bajo la presa. Esta omisión es una hipótesis adicional de simplificación: la impermeabilidad del terreno no garantiza, por sí sola, que no pueda existir presión de agua en juntas o interfaces.
+
+La interfaz presa–fundación se considera siempre cerrada y perfectamente vinculada. No se modelan contacto unilateral, pérdida de apoyo, apertura de juntas ni leyes de fricción. Las reacciones nodales FEM, por sí solas, no constituyen una distribución física de presiones de contacto unilateral.
+
+7. ESTABILIDAD Y VERIFICACIONES
+
+Se calculan las resultantes del peso propio y del empuje hidrostático, sus momentos respecto del pie aguas abajo y los momentos producidos por las reacciones del modelo FEM. Se verifica el equilibrio global:
+
+    suma(F_x) = 0,
+    suma(F_y) = 0,
+    suma(M_z) = 0.
+
+Como indicador simplificado frente al vuelco, se utiliza el cociente entre el momento estabilizante del peso propio y el momento desestabilizante del agua, ambos respecto del mismo punto:
+
+    FS_vuelco = M_estabilizante / |M_desestabilizante|.
+
+Este cociente no representa una verificación integral de seguridad: no incluye subpresión, sismo, deslizamiento, falla de la fundación ni resistencia efectiva a tracción. Además, el empotramiento idealizado puede desarrollar reacciones y momentos que una interfaz real sin adherencia no podría transmitir. Por ello, no se interpreta el equilibrio FEM como prueba suficiente de ausencia de vuelco o levantamiento en una fundación real.
+
+8. DISCRETIZACIÓN, POSTPROCESAMIENTO Y LIMITACIONES
+
+La sección se discretiza mediante elementos CST, LST, Q4 o Q8. Se emplean aproximaciones conformes de desplazamientos; las tensiones se recuperan a partir de las deformaciones calculadas. Los resultados se contrastan mediante patch tests, verificaciones de cargas y equilibrio, y estudios de convergencia de desplazamientos, tensiones puntuales y energía de deformación.
+
+En elementos de desplazamientos, el campo de tensiones puede ser discontinuo entre elementos, especialmente para CST. Los valores extremos cercanos a esquinas empotradas o cambios bruscos de condición de borde pueden ser muy sensibles al refinamiento y no se adoptan automáticamente como tensiones de diseño.
+
+La representación deformada se obtiene mediante (x',y') = (x,y) + alpha*(u_x,u_y), donde alpha es un factor de amplificación exclusivamente visual. El mapa de tensión principal máxima sobre esa configuración muestra las tensiones de la solución original, sin multiplicarlas por alpha. En deformación plana se tiene en cuenta sigma_z para obtener la máxima tensión principal tridimensional.
+
+En síntesis, el modelo es adecuado para comparar formulaciones FEM, examinar el equilibrio y estimar la respuesta elástica de la sección bajo las acciones indicadas. Sus resultados quedan condicionados por la idealización bidimensional, el comportamiento elástico lineal, el empotramiento perfecto y las cargas consideradas.

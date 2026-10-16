@@ -37,6 +37,7 @@ from source.output.displacementPlot import plot_displacement_fields
 from source.output.stressPostprocess import compute_strain_stress
 from source.output.reports import report_strain_stress
 from source.output.stressPlot import plot_stress_fields
+from source.output.principalStressDeformed import plot_principal_stress_deformed
 
 # Estabilidad al vuelco
 from source.output.stability import (
@@ -428,6 +429,21 @@ def run_gravity_dam(config):
             subdivisions=10,
             title=f"Presa de gravedad - {config.mesh_path.stem}",
             save_filename=f"stresses{config.mesh_path.stem}.png"
+        )
+
+        # Consigna: maxima principal sobre la configuracion deformada.
+        # Como el material esta en deformacion plana, tambien se evalua
+        # sigma_z y se utiliza la mayor principal del tensor 3D.
+        # La amplificacion es exclusivamente grafica.
+        plot_principal_stress_deformed(
+            mesh,
+            elements,
+            U,
+            scale_factor=config.scale_factor,
+            subdivisions=12,
+            principal_mode="3d",
+            title=f"Presa de gravedad - {config.mesh_path.stem}",
+            save_filename=f"principalStressDeformed{config.mesh_path.stem}.png"
         )
 
     print("\n>>> ANALISIS DE LA PRESA COMPLETADO <<<")
