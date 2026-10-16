@@ -1,10 +1,14 @@
 import numpy as np
 
 class LinearElastic:
-    def __init__(self, E, nu, plane_state="stress"):
+    def __init__(self, E, nu, plane_state="stress", rho=0.0):
         self.E = E
         self.nu = nu
         self.plane_state = plane_state
+
+        # Densidad [kg/m3]. Se usa para el peso propio.
+        # Es opcional para no afectar a los patch tests.
+        self.rho = rho
 
         if plane_state not in ("stress", "strain"):
             raise ValueError("El estado plano debe ser 'stress' o 'strain'")

@@ -41,6 +41,8 @@ from source.problems.GravityDam import (
     DamConfig,
     run_gravity_dam
 )
+from source.mesh.generator import write_dam_mesh
+from source.materials.hormigon import hormigon
 
 
 # =============================================================
@@ -49,15 +51,53 @@ from source.problems.GravityDam import (
 
 def main():
 
+    # ---------------------------------------------------------
+    # Malla
+    # ---------------------------------------------------------
+
     # Seleccionar el tipo de elemento:
     # "CST", "LST", "Q4" o "Q8".
     element_type = "Q8"
 
+    # Cantidad de divisiones de la seccion de la presa.
+    # nx: horizontal (a lo ancho), ny: vertical (en altura).
+    # Q4/Q8: nx*ny elementos. CST/LST: 2*nx*ny elementos.
+    nx = 6
+    ny = 10
+
+    # True: se genera (o regenera) el archivo de malla con nx, ny.
+    # False: se usa un archivo existente, escrito a mano o
+    #        generado antes (indicar su nombre en mesh_file).
+    generate_mesh = True
+    mesh_file = f"presa_{element_type}_{nx}x{ny}.mesh"
+
+    # Geometria de la presa [m]
+    height = 30.0
+    base_width = 18.0
+    crest_width = 3.0
+
+    mesh_path = PROJECT_ROOT / "meshes" / mesh_file
+
+    if generate_mesh:
+        # El material (E, nu, rho, estado plano) se escribe
+        # en el archivo de malla y se lee desde ahi.
+        write_dam_mesh(
+            mesh_path,
+            element_type,
+            nx,
+            ny,
+            material=hormigon,
+            height=height,
+            base_width=base_width,
+            crest_width=crest_width
+        )
+        print(f"Malla generada en: {mesh_path}")
+
     # Configuracion geometrica, fisica y de visualizacion.
     config = DamConfig(
 
-        # Archivo de malla correspondiente al elemento
-        mesh_path=PROJECT_ROOT / "meshes" / f"{element_type}.mesh",
+        # Archivo de malla (define elementos, orden y material)
+        mesh_path=mesh_path,
 
         # Espesor considerado en el modelo bidimensional [m]
         thickness=1.0,
@@ -72,9 +112,9 @@ def main():
         water_level=28.0,
 
         # Geometria de la presa [m]
-        height=30.0,
-        base_width=18.0,
-        crest_width=3.0,
+        height=height,
+        base_width=base_width,
+        crest_width=crest_width,
 
         # Coordenada horizontal del paramento aguas arriba [m]
         x_upstream=0.0,
