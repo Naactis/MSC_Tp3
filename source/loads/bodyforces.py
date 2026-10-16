@@ -6,7 +6,7 @@ from source.loads.quadrature import integration_points
 def compute_body_forces(
     mesh,
     elements,
-    rho_concrete,
+    rho_concrete=None,
     g=9.81
 ):
     """
@@ -17,21 +17,26 @@ def compute_body_forces(
         fe = t * integral(N.T @ b) dA
 
     donde:
-        b = [0, -rho_concrete*g]
+        b = [0, -rho*g]
 
-    El espesor se obtiene de cada elemento.
+    El espesor se obtiene de cada elemento. Si rho_concrete es None,
+    la densidad se toma del material de cada elemento (definido en
+    el archivo de malla).
     """
 
     # Vector global de fuerzas
     f_body = np.zeros(mesh.number_of_dofs())
 
-    # Fuerza de volumen vertical, negativa por gravedad
-    b_y = -rho_concrete * g
-
     # ---------------------------------------------------------
     # 1. Recorrido de los elementos
     # ---------------------------------------------------------
     for element in elements:
+
+        # Densidad del elemento
+        rho = element.material.rho if rho_concrete is None else rho_concrete
+
+        # Fuerza de volumen vertical, negativa por gravedad
+        b_y = -rho * g
 
         # Grados de libertad globales del elemento
         dofs = element.global_dofs()

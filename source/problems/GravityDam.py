@@ -4,9 +4,8 @@ from pathlib import Path
 
 import numpy as np
 
-# Malla y material
+# Malla (incluye los materiales definidos en el archivo)
 from source.mesh.mesh import Mesh
-from source.materials.hormigon import hormigon, rho
 
 # Elementos finitos
 from source.elements.cst import CST
@@ -33,6 +32,12 @@ from source.output.plot import plot_deformed_mesh
 from source.output.postprocess import compute_displacements
 from source.output.reports import report_displacements
 from source.output.displacementPlot import plot_displacement_fields
+
+# Tensiones
+from source.output.stressPostprocess import compute_strain_stress
+from source.output.reports import report_strain_stress
+from source.output.stressPlot import plot_stress_fields
+
 # =============================================================
 # 1. CONFIGURACION DEL PROBLEMA
 # =============================================================
@@ -47,7 +52,9 @@ class DamConfig:
 
     thickness: float = 1.0
 
-    rho_concrete: float = rho
+    # Densidad del hormigon [kg/m3]. Si es None, se toma
+    # del material definido en el archivo de malla.
+    rho_concrete: float = None
     rho_water: float = 1000.0
 
     gravity: float = 9.81
@@ -67,39 +74,33 @@ class DamConfig:
 # 2. CREACION DE ELEMENTOS
 # =============================================================
 
-def create_elements(mesh, material, thickness):
+def create_elements(mesh, thickness):
     """
-    Instancia los elementos segun el tipo almacenado
-    en la conectividad de la malla.
+    Instancia los elementos segun el tipo y el material
+    definidos para cada uno en el archivo de malla.
     """
 
+    # Mesh.read ya normaliza los nombres (TRI3 -> CST, etc.)
+    # y verifica el orden de interpolacion y la cantidad de nodos.
     element_classes = {
         "CST": CST,
-        "TRI3": CST,
         "LST": LST,
-        "TRI6": LST,
         "Q4": Q4,
-        "QUAD4": Q4,
-        "Q8": Q8,
-        "QUAD8": Q8
+        "Q8": Q8
     }
 
     elements = []
 
-    for global_id, element_type, connectivity in zip(
+    for e, (global_id, element_type, connectivity) in enumerate(zip(
         mesh.element_global_ids,
         mesh.element_types,
         mesh.connectivity
-    ):
-
-        element_type = element_type.upper()
-
-        if element_type not in element_classes:
-            raise ValueError(
-                f"Tipo de elemento desconocido: {element_type}"
-            )
+    )):
 
         element_class = element_classes[element_type]
+
+        # Material asignado al elemento en el archivo de malla
+        material = mesh.element_material(e)
 
         element = element_class(
             global_id,
@@ -189,7 +190,6 @@ def run_gravity_dam(config):
 
     elements = create_elements(
         mesh,
-        hormigon,
         config.thickness
     )
 
@@ -197,6 +197,25 @@ def run_gravity_dam(config):
         f"Malla: {len(mesh.nodes)} nodos, "
         f"{len(elements)} elementos"
     )
+
+    # Densidad del hormigon: la del archivo de malla, salvo que
+    # se indique otra en la configuracion. La verificacion del
+    # peso teorico supone una presa de un unico material.
+    if config.rho_concrete is None:
+        densities = {element.material.rho for element in elements}
+
+        if len(densities) != 1:
+            raise ValueError(
+                "La verificacion del peso propio supone un unico "
+                f"material, pero la malla tiene densidades {densities}"
+            )
+
+        rho_concrete = densities.pop()
+    else:
+        rho_concrete = config.rho_concrete
+
+    if rho_concrete <= 0.0:
+        raise ValueError("La densidad del hormigon debe ser positiva")
 
     # ---------------------------------------------------------
     # 3. Ensamblar matriz global de rigidez
@@ -215,7 +234,7 @@ def run_gravity_dam(config):
     f_body = compute_body_forces(
         mesh,
         elements,
-        rho_concrete=config.rho_concrete,
+        rho_concrete=rho_concrete,
         g=config.gravity
     )
 
@@ -244,7 +263,7 @@ def run_gravity_dam(config):
         area,
         f_body,
         f_hydro,
-        rho_concrete=config.rho_concrete,
+        rho_concrete=rho_concrete,
         rho_water=config.rho_water,
         g=config.gravity,
         water_level=config.water_level,
@@ -304,17 +323,29 @@ def run_gravity_dam(config):
     # Se muestran los resultados maximos en la terminal.
     report_displacements(displacements)
 
-    plot_displacement_fields(
+
+    # ---------------------------------------------------------
+    # 10. Postprocesamiento de deformaciones y tensiones
+    # ---------------------------------------------------------
+
+
+    print("Calculando deformaciones y tensiones...")
+
+    stress_results = compute_strain_stress(
         mesh,
         elements,
-        U,
-        subdivisions=10,
-        title=f"Presa de gravedad - {config.mesh_path.stem}",
-        save_filename=f"displacements{config.mesh_path.stem}.png"
-        )
+        U
+    )
 
-   # ---------------------------------------------------------
-    # 10. Visualizacion de resultados
+    print(
+        f"Puntos de evaluacion: "
+        f"{len(stress_results['stresses'])}"
+    )
+
+    report_strain_stress(stress_results)
+
+    # ---------------------------------------------------------
+    # 11. Visualizacion de resultados
     # ---------------------------------------------------------
 
     if config.plot:
@@ -344,10 +375,25 @@ def run_gravity_dam(config):
             save_filename=f"displacements{config.mesh_path.stem}.png"
         )
 
+        # Se representan las tensiones normales, cortantes
+        # y la tension principal mayor del plano XY.
+        #
+        # Las tensiones se expresan en MPa.
+        # La geometria no se amplifica.
+        
+        plot_stress_fields(
+            mesh,
+            elements,
+            U,
+            subdivisions=10,
+            title=f"Presa de gravedad - {config.mesh_path.stem}",
+            save_filename=f"stresses{config.mesh_path.stem}.png"
+        )
+
     print("\n>>> ANALISIS DE LA PRESA COMPLETADO <<<")
 
     # ---------------------------------------------------------
-    # 11. Devolver resultados
+    # 12. Devolver resultados
     # ---------------------------------------------------------
 
     return {
@@ -363,4 +409,4 @@ def run_gravity_dam(config):
     }
 
 
-    
+

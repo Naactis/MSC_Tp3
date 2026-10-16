@@ -1,0 +1,28 @@
+# Python: archivos compilados y caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Herramientas de pruebas y analisis
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Archivos temporales del sistema y del editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Archivos locales de configuracion sensible
+.env
+.env.*
+!.env.example
