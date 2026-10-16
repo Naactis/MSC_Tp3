@@ -1,6 +1,97 @@
 import numpy as np
 
 
+def _extreme_value_report(values, coords, label, unit=""):
+    """
+    Busca maximo y minimo de un campo y devuelve un diccionario
+    con valor y coordenadas fisicas.
+    """
+
+    idx_max = int(np.argmax(values))
+    idx_min = int(np.argmin(values))
+
+    return {
+        "label": label,
+        "max_value": float(values[idx_max]),
+        "max_x": float(coords[idx_max, 0]),
+        "max_y": float(coords[idx_max, 1]),
+        "min_value": float(values[idx_min]),
+        "min_x": float(coords[idx_min, 0]),
+        "min_y": float(coords[idx_min, 1]),
+        "unit": unit
+    }
+
+
+def report_strain_stress(stress_results):
+    """
+    Muestra un resumen numerico de deformaciones y tensiones
+    evaluadas en los puntos de Gauss.
+    """
+
+    coords = stress_results["physical_coords"]
+
+    strains = stress_results["strains"]
+    stresses = stress_results["stresses"]
+    principal_stresses = stress_results["principal_stresses"]
+    max_inplane_shear = stress_results["max_inplane_shear"]
+
+    # Deformaciones
+    eps_x = strains[:, 0]
+    eps_y = strains[:, 1]
+    gamma_xy = strains[:, 2]
+
+    # Tensiones
+    sigma_x = stresses[:, 0]
+    sigma_y = stresses[:, 1]
+    tau_xy = stresses[:, 2]
+
+    # Principales
+    sigma_1 = principal_stresses[:, 0]
+    sigma_2 = principal_stresses[:, 1]
+    tau_max_xy = max_inplane_shear
+
+    reports = [
+        _extreme_value_report(eps_x, coords, "epsilon_x", ""),
+        _extreme_value_report(eps_y, coords, "epsilon_y", ""),
+        _extreme_value_report(gamma_xy, coords, "gamma_xy", ""),
+        _extreme_value_report(sigma_x, coords, "sigma_x", "Pa"),
+        _extreme_value_report(sigma_y, coords, "sigma_y", "Pa"),
+        _extreme_value_report(tau_xy, coords, "tau_xy", "Pa"),
+        _extreme_value_report(sigma_1, coords, "sigma_1", "Pa"),
+        _extreme_value_report(sigma_2, coords, "sigma_2", "Pa"),
+        _extreme_value_report(tau_max_xy, coords, "tau_max_xy", "Pa"),
+    ]
+
+    print("\n" + "-" * 60)
+    print("RESULTADOS DE DEFORMACIONES Y TENSIONES")
+    print("-" * 60)
+
+    for item in reports:
+        label = item["label"]
+        unit = item["unit"]
+
+        if unit == "Pa":
+            max_value = item["max_value"] / 1e6
+            min_value = item["min_value"] / 1e6
+            shown_unit = "MPa"
+        else:
+            max_value = item["max_value"]
+            min_value = item["min_value"]
+            shown_unit = unit
+
+        print(f"{label}:")
+        print(
+            f"  Maximo: {max_value:+.6e} {shown_unit} "
+            f"en ({item['max_x']:.3f}, {item['max_y']:.3f}) m"
+        )
+        print(
+            f"  Minimo: {min_value:+.6e} {shown_unit} "
+            f"en ({item['min_x']:.3f}, {item['min_y']:.3f}) m"
+        )
+
+    print("-" * 60)
+
+
 def force_resultants(mesh, forces):
     """
     Calcula Fx, Fy y Mz de un vector de fuerzas nodales.

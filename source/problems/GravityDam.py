@@ -33,6 +33,12 @@ from source.output.plot import plot_deformed_mesh
 from source.output.postprocess import compute_displacements
 from source.output.reports import report_displacements
 from source.output.displacementPlot import plot_displacement_fields
+
+# Tensiones
+from source.output.stressPostprocess import compute_strain_stress
+from source.output.reports import report_strain_stress
+from source.output.stressPlot import plot_stress_fields
+
 # =============================================================
 # 1. CONFIGURACION DEL PROBLEMA
 # =============================================================
@@ -313,8 +319,40 @@ def run_gravity_dam(config):
         save_filename=f"displacements{config.mesh_path.stem}.png"
         )
 
-   # ---------------------------------------------------------
-    # 10. Visualizacion de resultados
+    # ---------------------------------------------------------
+    # 10. Postprocesamiento de deformaciones y tensiones
+    # ---------------------------------------------------------
+
+    print("Calculando deformaciones y tensiones...")
+
+    stress_results = compute_strain_stress(
+        mesh,
+        elements,
+        U
+    )
+
+    print(
+        f"Puntos de evaluacion: "
+        f"{len(stress_results['stresses'])}"
+    )
+
+    print("Calculando deformaciones y tensiones...")
+
+    stress_results = compute_strain_stress(
+        mesh,
+        elements,
+        U
+    )
+
+    print(
+        f"Puntos de evaluacion: "
+        f"{len(stress_results['stresses'])}"
+    )
+
+    report_strain_stress(stress_results)
+
+    # ---------------------------------------------------------
+    # 11. Visualizacion de resultados
     # ---------------------------------------------------------
 
     if config.plot:
@@ -344,10 +382,25 @@ def run_gravity_dam(config):
             save_filename=f"displacements{config.mesh_path.stem}.png"
         )
 
+        # Se representan las tensiones normales, cortantes
+        # y la tension principal mayor del plano XY.
+        #
+        # Las tensiones se expresan en MPa.
+        # La geometria no se amplifica.
+        
+        plot_stress_fields(
+            mesh,
+            elements,
+            U,
+            subdivisions=10,
+            title=f"Presa de gravedad - {config.mesh_path.stem}",
+            save_filename=f"stresses{config.mesh_path.stem}.png"
+        )
+
     print("\n>>> ANALISIS DE LA PRESA COMPLETADO <<<")
 
     # ---------------------------------------------------------
-    # 11. Devolver resultados
+    # 12. Devolver resultados
     # ---------------------------------------------------------
 
     return {
@@ -363,4 +416,4 @@ def run_gravity_dam(config):
     }
 
 
-    
+
